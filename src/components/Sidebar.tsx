@@ -39,7 +39,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   notes, activeNoteId, onSelectNote, onCreateNote, onDeleteNote,
   filterFolder, onFilterFolder, activeView, onViewChange,
-  onBackup, onRestore, isOpen, onToggle,
+  onBackup, onRestore, isOpen, onToggle, onDriveRestored,
 }) => {
   return (
     <>
