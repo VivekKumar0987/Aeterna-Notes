@@ -4,7 +4,7 @@
 
 import { exportAll, importAll } from "./db";
 
-const CLIENT_ID = "626633302423-eoann56cjt2su6f4j4gchkskkiuv09k7.apps.googleusercontent.com";
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
 const FOLDER_NAME = "Aeterna App Backups";
 const BACKUP_FILENAME = "Aeterna_Backup.json";
