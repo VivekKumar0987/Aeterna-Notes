@@ -151,6 +151,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Upload size={13} /> Import Vault
             </button>
           </div>
+
+          {/* Google Drive Sync */}
+          <div className="pt-2 border-t border-border/30 mt-2">
+            <p className="text-[10px] text-muted-foreground/60 mb-1.5 px-1">Cloud Backup</p>
+            <GoogleDriveSync onRestored={onDriveRestored} />
+          </div>
         </div>
       </aside>
     </>
