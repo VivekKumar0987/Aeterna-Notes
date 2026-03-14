@@ -225,7 +225,7 @@ const Index = () => {
         onBackup={handleBackup}
         onRestore={handleRestore}
         isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        onDriveRestored={refreshNotes}
       />
 
       {/* Main Content */}
