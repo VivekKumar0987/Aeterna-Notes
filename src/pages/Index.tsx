@@ -25,6 +25,7 @@ const Index = () => {
   const [sentiment, setSentiment] = useState(analyzeSentiment(""));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [filterFolder, setFilterFolder] = useState<Folder | "All">("All");
+  const [showRecovery, setShowRecovery] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeNote = notes.find(n => n.id === activeNoteId);
