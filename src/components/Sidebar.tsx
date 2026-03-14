@@ -33,6 +33,7 @@ interface SidebarProps {
   onRestore: () => void;
   isOpen: boolean;
   onToggle: () => void;
+  onDriveRestored: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
