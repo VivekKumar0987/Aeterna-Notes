@@ -282,6 +282,14 @@ const Index = () => {
         {/* Pomodoro - floating */}
         <PomodoroTimer />
       </main>
+
+      {/* Drive Recovery Modal */}
+      {showRecovery && (
+        <DriveRecoveryModal
+          onRestored={() => { setShowRecovery(false); refreshNotes(); }}
+          onDismiss={() => setShowRecovery(false)}
+        />
+      )}
     </div>
   );
 };
