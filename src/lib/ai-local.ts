@@ -21,11 +21,10 @@ export function classifyNote(text: string): Folder {
   return "Ideas";
 }
 
-// Simple extractive summarization
+// Simple extractive summarization — returns summary with marker
 export function summarizeText(text: string): string {
   const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 15);
   if (sentences.length <= 3) return text;
-  // Score sentences by position and length
   const scored = sentences.map((s, i) => ({
     text: s,
     score: (i === 0 ? 3 : 1) + (s.length > 50 ? 2 : 0) + (s.split(" ").length > 8 ? 1 : 0),
@@ -40,19 +39,32 @@ export function smartExpand(text: string): string {
   return lines.map(line => {
     const clean = line.replace(/^[-•*]\s*/, "").trim();
     if (clean.length < 5) return clean;
-    return `${clean.charAt(0).toUpperCase()}${clean.slice(1)}. This is an important point worth considering in more detail, as it connects to the broader context of the discussion.`;
+    // Check if line is already a full sentence (ends with punctuation)
+    const endsWithPunct = /[.!?]$/.test(clean);
+    if (endsWithPunct && clean.split(" ").length > 10) return clean;
+    return `${clean.charAt(0).toUpperCase()}${clean.slice(1)}${endsWithPunct ? "" : "."} This is an important point worth expanding upon, as it ties into the broader narrative of your thoughts.`;
   }).join("\n\n");
 }
 
-// AI Cleanup: fix common issues
+// AI Cleanup: fix common issues without mangling content
 export function cleanupText(text: string): string {
-  return text
-    .replace(/\s{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .split(". ")
-    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(". ")
-    .trim();
+  let result = text;
+  // Collapse multiple spaces (but not newlines)
+  result = result.replace(/[^\S\n]{2,}/g, " ");
+  // Collapse 3+ newlines into 2
+  result = result.replace(/\n{3,}/g, "\n\n");
+  // Trim leading/trailing whitespace per line
+  result = result.split("\n").map(line => line.trim()).join("\n");
+  // Capitalize first letter of each sentence (after . ! ?)
+  result = result.replace(/(^|[.!?]\s+)([a-z])/g, (_, prefix, letter) => prefix + letter.toUpperCase());
+  // Capitalize first character of the entire text
+  if (result.length > 0 && /[a-z]/.test(result[0])) {
+    result = result[0].toUpperCase() + result.slice(1);
+  }
+  // Fix common punctuation issues
+  result = result.replace(/\s+([.,!?;:])/g, "$1"); // remove space before punctuation
+  result = result.replace(/([.,!?;:])([A-Za-z])/g, "$1 $2"); // add space after punctuation if missing
+  return result.trim();
 }
 
 // Philosopher lens reframe

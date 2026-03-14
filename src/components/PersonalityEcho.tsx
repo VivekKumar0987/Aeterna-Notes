@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import type { Note } from "@/lib/db";
-import { Bot, Send } from "lucide-react";
+import { Bot, Send, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props { notes: Note[]; }
 
@@ -8,42 +9,52 @@ interface Message { role: "user" | "echo"; text: string; }
 
 export const PersonalityEcho: React.FC<Props> = ({ notes }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "echo", text: "I am your Personality Echo — a reflection based on everything you've written. Ask me anything." }
+    { role: "echo", text: "I am your Personality Echo — a reflection built from everything you've written. Ask me anything about yourself." }
   ]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Build a simple vocabulary profile from notes
   const profile = useMemo(() => {
     const allText = notes.map(n => n.content).join(" ");
     const words = allText.toLowerCase().split(/\W+/).filter(w => w.length > 3);
     const freq: Record<string, number> = {};
     words.forEach(w => freq[w] = (freq[w] || 0) + 1);
     const topWords = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 20).map(e => e[0]);
-    return { totalWords: words.length, topWords, noteCount: notes.length };
+
+    // Folder breakdown
+    const folderCounts: Record<string, number> = {};
+    notes.forEach(n => folderCounts[n.folder] = (folderCounts[n.folder] || 0) + 1);
+    const folderBreakdown = Object.entries(folderCounts).map(([k, v]) => `${k}: ${v}`).join(", ");
+
+    // Dominant sentiment
+    const sentCounts: Record<string, number> = {};
+    notes.forEach(n => sentCounts[n.sentiment] = (sentCounts[n.sentiment] || 0) + 1);
+    const dominantSentiment = Object.entries(sentCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "neutral";
+
+    const avgLength = notes.length > 0 ? Math.round(words.length / notes.length) : 0;
+
+    return { totalWords: words.length, topWords, noteCount: notes.length, avgLength, dominantSentiment, folderBreakdown };
   }, [notes]);
 
-  const generateResponse = (question: string): string => {
-    const q = question.toLowerCase();
-    if (q.includes("who am i") || q.includes("about me")) {
-      return `Based on ${profile.noteCount} notes and ${profile.totalWords} words, you seem deeply thoughtful. Your most used concepts are: ${profile.topWords.slice(0, 8).join(", ")}. Your writing reveals someone who values introspection.`;
-    }
-    if (q.includes("style") || q.includes("writing")) {
-      return `Your writing style leans toward ${profile.totalWords > 5000 ? "detailed, expansive" : "concise, focused"} expression. You frequently use words like "${profile.topWords.slice(0, 5).join('", "')}".`;
-    }
-    if (q.includes("advice") || q.includes("suggest")) {
-      return `Based on your patterns, I'd echo back: focus on what appears most in your thoughts — ${profile.topWords.slice(0, 3).join(", ")}. Your writing suggests these themes matter deeply to you.`;
-    }
-    // Generic response using user's vocabulary
-    const randomWords = profile.topWords.slice(0, 5);
-    return `Reflecting your voice: The themes of ${randomWords.join(", ")} weave through your thoughts. Based on your ${profile.noteCount} entries, your mind gravitates toward these ideas consistently.`;
-  };
-
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
     const userMsg: Message = { role: "user", text: input };
-    const echoMsg: Message = { role: "echo", text: generateResponse(input) };
-    setMessages(prev => [...prev, userMsg, echoMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInput("");
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("personality-echo", {
+        body: { question: input, profile },
+      });
+
+      if (error) throw error;
+      setMessages(prev => [...prev, { role: "echo", text: data.reply }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "echo", text: "I'm having trouble reflecting right now. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,7 +65,7 @@ export const PersonalityEcho: React.FC<Props> = ({ notes }) => {
         </div>
         <div>
           <h2 className="text-lg font-serif font-semibold text-foreground">Personality Echo</h2>
-          <p className="text-xs text-muted-foreground">A reflection of your writing self</p>
+          <p className="text-xs text-muted-foreground">AI reflection of your writing self • {profile.noteCount} notes analyzed</p>
         </div>
       </div>
 
@@ -70,6 +81,13 @@ export const PersonalityEcho: React.FC<Props> = ({ notes }) => {
             </div>
           </div>
         ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="glass rounded-2xl px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" /> Reflecting...
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -78,9 +96,10 @@ export const PersonalityEcho: React.FC<Props> = ({ notes }) => {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
           placeholder="Ask your echo..."
-          className="flex-1 bg-secondary rounded-xl px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary/30"
+          disabled={loading}
+          className="flex-1 bg-secondary rounded-xl px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
         />
-        <button onClick={handleSend} className="p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all">
+        <button onClick={handleSend} disabled={loading} className="p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50">
           <Send size={16} />
         </button>
       </div>
