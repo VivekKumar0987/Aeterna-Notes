@@ -5,6 +5,7 @@ import {
   PenLine, FolderOpen, BarChart3, Calendar, Bot, Clock, Download, Upload,
   Plus, Trash2, ChevronLeft, ChevronRight, Scroll, BookOpen
 } from "lucide-react";
+import { GoogleDriveSync } from "./GoogleDriveSync";
 
 const FOLDERS: (Folder | "All")[] = ["All", "Work", "Personal", "Ideas", "Journal", "Legacy", "Uncategorized"];
 
