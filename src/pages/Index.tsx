@@ -5,6 +5,7 @@ import { getAllNotes, saveNote, deleteNote, getSettings, saveSettings } from "@/
 import { analyzeSentiment, getSentimentGradient, getSentimentLabel } from "@/lib/sentiment";
 import { classifyNote, summarizeText, smartExpand, cleanupText, philosopherLens, predictNextWords, getDailyPrompt } from "@/lib/ai-local";
 import { downloadBackup, restoreBackup } from "@/lib/backup";
+import { loadGoogleScript, isSignedIn, signIn, checkDriveBackup } from "@/lib/google-drive";
 import { Sidebar } from "@/components/Sidebar";
 import { NoteEditor } from "@/components/NoteEditor";
 import { TimeCapsule } from "@/components/TimeCapsule";
@@ -12,6 +13,7 @@ import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import { PomodoroTimer } from "@/components/PomodoroTimer";
 import { WeeklyDigest } from "@/components/WeeklyDigest";
 import { PersonalityEcho } from "@/components/PersonalityEcho";
+import { DriveRecoveryModal } from "@/components/DriveRecoveryModal";
 import { toast } from "sonner";
 
 type View = "editor" | "analytics" | "digest" | "echo" | "timeline";
