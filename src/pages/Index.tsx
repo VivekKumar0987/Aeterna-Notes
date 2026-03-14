@@ -30,11 +30,28 @@ const Index = () => {
 
   const activeNote = notes.find(n => n.id === activeNoteId);
 
-  // Load notes on mount
+  const refreshNotes = useCallback(() => {
+    getAllNotes().then(n => {
+      setNotes(n);
+      if (n.length > 0 && !activeNoteId) setActiveNoteId(n[0].id);
+    });
+  }, [activeNoteId]);
+
+  // Load notes on mount + check Drive recovery
   useEffect(() => {
     getAllNotes().then(n => {
       setNotes(n);
       if (n.length > 0) setActiveNoteId(n[0].id);
+
+      // Recovery mode: if no notes, check Google Drive
+      if (n.length === 0) {
+        loadGoogleScript()
+          .then(() => {
+            // Give user a chance to restore — show modal
+            setShowRecovery(true);
+          })
+          .catch(() => {});
+      }
     });
     // Create daily journal if none exists for today
     const today = new Date().toISOString().slice(0, 10);
@@ -56,6 +73,8 @@ const Index = () => {
         saveNote(journal).then(() => getAllNotes().then(setNotes));
       }
     });
+    // Preload GIS script
+    loadGoogleScript().catch(() => {});
   }, []);
 
   // Update sentiment in real-time
