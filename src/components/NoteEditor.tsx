@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import type { Note, NoteType } from "@/lib/db";
 import {
   Sparkles, Wand2, AlignLeft, FileText, Mic, MicOff, Scroll,
-  ChevronDown, BookOpen
+  ChevronDown, BookOpen, Undo2
 } from "lucide-react";
 
 interface NoteEditorProps {
@@ -18,11 +18,20 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 }) => {
   const [showLens, setShowLens] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [preActionContent, setPreActionContent] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
+  const baseContentRef = useRef<string>("");
 
   const isParchment = note.type === "future-letter";
   const [unlockDate, setUnlockDate] = useState(note.unlockDate ? new Date(note.unlockDate).toISOString().slice(0, 10) : "");
+
+  // Clear undo state when switching notes
+  useEffect(() => {
+    setPreActionContent(null);
+    setLastAction(null);
+  }, [note.id]);
 
   // Handle Tab for predictive text
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -32,7 +41,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     }
   }, [prediction, note.content, onUpdate]);
 
-  // Voice-to-Note
+  // Voice-to-Note — fixed to avoid duplication
   const toggleRecording = useCallback(() => {
     if (isRecording) {
       recognitionRef.current?.stop();
@@ -41,15 +50,26 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) return;
+    
+    // Capture content at the moment recording starts
+    baseContentRef.current = note.content;
+    
     const recognition = new SR();
     recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.interimResults = false; // Only final results to avoid duplication
+    recognition.lang = "en-US";
+    
     recognition.onresult = (event: any) => {
-      let transcript = "";
-      for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
+      let newTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          newTranscript += event.results[i][0].transcript;
+        }
       }
-      onUpdate({ content: note.content + " " + transcript });
+      if (newTranscript) {
+        baseContentRef.current = baseContentRef.current + " " + newTranscript;
+        onUpdate({ content: baseContentRef.current });
+      }
     };
     recognition.onerror = () => setIsRecording(false);
     recognition.onend = () => setIsRecording(false);
@@ -63,10 +83,20 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     onUpdate({ sealed: true, unlockDate: new Date(unlockDate).getTime() });
   }, [unlockDate, onUpdate]);
 
-  // Link detection: [[note title]]
-  const renderLinkedContent = (text: string) => {
-    return text.replace(/\[\[(.+?)\]\]/g, '🔗 $1');
-  };
+  // AI action with undo support
+  const handleAIWithUndo = useCallback((action: string) => {
+    setPreActionContent(note.content);
+    setLastAction(action);
+    onAIAction(action);
+  }, [note.content, onAIAction]);
+
+  const handleUndo = useCallback(() => {
+    if (preActionContent !== null) {
+      onUpdate({ content: preActionContent });
+      setPreActionContent(null);
+      setLastAction(null);
+    }
+  }, [preActionContent, onUpdate]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -93,15 +123,22 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
       {/* AI Toolbar */}
       <div className="flex items-center gap-2 px-6 py-2 border-b border-border/20">
-        <button onClick={() => onAIAction("summarize")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-primary/10 hover:bg-primary/20 text-primary transition-all">
+        <button onClick={() => handleAIWithUndo("summarize")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-primary/10 hover:bg-primary/20 text-primary transition-all">
           <FileText size={13} /> Summarize
         </button>
-        <button onClick={() => onAIAction("expand")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-primary/10 hover:bg-primary/20 text-primary transition-all">
+        <button onClick={() => handleAIWithUndo("expand")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-primary/10 hover:bg-primary/20 text-primary transition-all">
           <Wand2 size={13} /> Smart Expand
         </button>
-        <button onClick={() => onAIAction("cleanup")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-primary/10 hover:bg-primary/20 text-primary transition-all">
+        <button onClick={() => handleAIWithUndo("cleanup")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-primary/10 hover:bg-primary/20 text-primary transition-all">
           <AlignLeft size={13} /> AI Cleanup
         </button>
+
+        {/* Undo AI Action */}
+        {preActionContent !== null && (
+          <button onClick={handleUndo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-destructive/10 hover:bg-destructive/20 text-destructive transition-all">
+            <Undo2 size={13} /> Undo {lastAction}
+          </button>
+        )}
 
         {/* Philosopher Lens */}
         <div className="relative">
@@ -113,7 +150,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               {["stoicism", "existentialism", "buddhism"].map(lens => (
                 <button
                   key={lens}
-                  onClick={() => { onAIAction(lens); setShowLens(false); }}
+                  onClick={() => { handleAIWithUndo(lens); setShowLens(false); }}
                   className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-secondary/50 text-foreground capitalize transition-all"
                 >
                   {lens}
