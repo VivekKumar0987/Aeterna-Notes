@@ -5,6 +5,7 @@ import { getAllNotes, saveNote, deleteNote, getSettings, saveSettings } from "@/
 import { analyzeSentiment, getSentimentGradient, getSentimentLabel } from "@/lib/sentiment";
 import { classifyNote, summarizeText, smartExpand, cleanupText, philosopherLens, predictNextWords, getDailyPrompt } from "@/lib/ai-local";
 import { downloadBackup, restoreBackup } from "@/lib/backup";
+import { loadGoogleScript, isSignedIn, signIn, checkDriveBackup } from "@/lib/google-drive";
 import { Sidebar } from "@/components/Sidebar";
 import { NoteEditor } from "@/components/NoteEditor";
 import { TimeCapsule } from "@/components/TimeCapsule";
@@ -12,6 +13,7 @@ import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import { PomodoroTimer } from "@/components/PomodoroTimer";
 import { WeeklyDigest } from "@/components/WeeklyDigest";
 import { PersonalityEcho } from "@/components/PersonalityEcho";
+import { DriveRecoveryModal } from "@/components/DriveRecoveryModal";
 import { toast } from "sonner";
 
 type View = "editor" | "analytics" | "digest" | "echo" | "timeline";
@@ -23,15 +25,33 @@ const Index = () => {
   const [sentiment, setSentiment] = useState(analyzeSentiment(""));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [filterFolder, setFilterFolder] = useState<Folder | "All">("All");
+  const [showRecovery, setShowRecovery] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeNote = notes.find(n => n.id === activeNoteId);
 
-  // Load notes on mount
+  const refreshNotes = useCallback(() => {
+    getAllNotes().then(n => {
+      setNotes(n);
+      if (n.length > 0 && !activeNoteId) setActiveNoteId(n[0].id);
+    });
+  }, [activeNoteId]);
+
+  // Load notes on mount + check Drive recovery
   useEffect(() => {
     getAllNotes().then(n => {
       setNotes(n);
       if (n.length > 0) setActiveNoteId(n[0].id);
+
+      // Recovery mode: if no notes, check Google Drive
+      if (n.length === 0) {
+        loadGoogleScript()
+          .then(() => {
+            // Give user a chance to restore — show modal
+            setShowRecovery(true);
+          })
+          .catch(() => {});
+      }
     });
     // Create daily journal if none exists for today
     const today = new Date().toISOString().slice(0, 10);
@@ -53,6 +73,8 @@ const Index = () => {
         saveNote(journal).then(() => getAllNotes().then(setNotes));
       }
     });
+    // Preload GIS script
+    loadGoogleScript().catch(() => {});
   }, []);
 
   // Update sentiment in real-time
@@ -204,6 +226,7 @@ const Index = () => {
         onRestore={handleRestore}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
+        onDriveRestored={refreshNotes}
       />
 
       {/* Main Content */}
@@ -259,6 +282,14 @@ const Index = () => {
         {/* Pomodoro - floating */}
         <PomodoroTimer />
       </main>
+
+      {/* Drive Recovery Modal */}
+      {showRecovery && (
+        <DriveRecoveryModal
+          onRestored={() => { setShowRecovery(false); refreshNotes(); }}
+          onDismiss={() => setShowRecovery(false)}
+        />
+      )}
     </div>
   );
 };

@@ -5,6 +5,7 @@ import {
   PenLine, FolderOpen, BarChart3, Calendar, Bot, Clock, Download, Upload,
   Plus, Trash2, ChevronLeft, ChevronRight, Scroll, BookOpen
 } from "lucide-react";
+import { GoogleDriveSync } from "./GoogleDriveSync";
 
 const FOLDERS: (Folder | "All")[] = ["All", "Work", "Personal", "Ideas", "Journal", "Legacy", "Uncategorized"];
 
@@ -32,12 +33,13 @@ interface SidebarProps {
   onRestore: () => void;
   isOpen: boolean;
   onToggle: () => void;
+  onDriveRestored: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   notes, activeNoteId, onSelectNote, onCreateNote, onDeleteNote,
   filterFolder, onFilterFolder, activeView, onViewChange,
-  onBackup, onRestore, isOpen, onToggle,
+  onBackup, onRestore, isOpen, onToggle, onDriveRestored,
 }) => {
   return (
     <>
@@ -148,6 +150,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button onClick={onRestore} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs bg-secondary hover:bg-secondary/80 text-muted-foreground transition-all">
               <Upload size={13} /> Import Vault
             </button>
+          </div>
+
+          {/* Google Drive Sync */}
+          <div className="pt-2 border-t border-border/30 mt-2">
+            <p className="text-[10px] text-muted-foreground/60 mb-1.5 px-1">Cloud Backup</p>
+            <GoogleDriveSync onRestored={onDriveRestored} />
           </div>
         </div>
       </aside>
